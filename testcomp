@@ -1,0 +1,222 @@
+var fs=require('fs');
+var synaptic = require('synaptic');
+var jpeg = require('jpeg-js');
+var Neuron = synaptic.Neuron,  Layer = synaptic.Layer,  Network = synaptic.Network,  Trainer = synaptic.Trainer,  Architect = synaptic.Architect;
+var st=Date.now();
+var width = 125;
+var height = 63;
+var k = 25;
+if((process.argv[2]!=undefined)&&(process.argv[2]!='-c')){
+   process.exit()
+}
+if (process.argv[2] == '-c') {
+
+    var l1 = [];
+    var l2 = [];
+    var l3 = [];
+    for (var i = 0; i != width * height; i++) {
+        l1[i] = new Neuron();
+
+    }
+
+    console.log("Длинна ", width * height / k)
+    for (var i = 0; i != width * height / k; i++) {
+        l2[i] = new Neuron();
+        for (var ki = 0; ki != k; ki++) {
+            l1[i * k + ki].project(l2[i]);
+        }
+    }
+    for (var i = 0; i != width * height / k; i++) {
+        for (var ki = 0; ki != k; ki++) {
+            l3[i * k + ki] = new Neuron();
+            l2[i].project(l3[i * k+ki]);
+        }
+    }
+
+    /*
+    var inputLayer = new Layer(width * height);
+    var hiddenLayer = new Layer(24);
+    var outputLayer = new Layer(width * height);
+
+    inputLayer.project(hiddenLayer);
+    hiddenLayer.project(outputLayer);
+
+    var myNet = new Network({
+        input: inputLayer,
+        hidden: [hiddenLayer],
+        output: outputLayer
+    });
+    //var myNet = new Architect.Perceptron(1, 2, 50 * 25);
+fs.writeFileSync('./Net.JSON',JSON.stringify(myNet.toJSON()),'utf-8' );
+console.log('сеть создана')
+    */
+} else {
+    var l1 = JSON.parse(fs.readFileSync('./N1', 'utf8'));
+    var l2 = JSON.parse(fs.readFileSync('./N2', 'utf8'));
+    var l3 = JSON.parse(fs.readFileSync('./N3', 'utf8'));
+}
+var learningRate = 0.003;
+var trainingSet = [
+{ input: getImage("in1.jpg"), output: getImage("in1.jpg") },
+{ input: getImage("in2.jpg"), output: getImage("in2.jpg") },
+]
+
+console.log(l1[0])
+console.log('1.Инициализация сети за ' + ((Date.now() - st) / 1000) + ' секунд')
+var st = Date.now();
+for (var j1 = 0; j1 < 80; j1++) {
+    for (var j = 0; j < 100; j++) {
+        for (var d = 0; d < 2; d++) {
+            for (var i = 0; i < width * height; i++) {
+                l1[i].activate(trainingSet[d].input[i]);
+            }
+            for (var i = 0; i < width * height / k; i++) {
+                l2[i].activate();
+            }
+            for (var i = 0; i < width * height; i++) {
+                l3[i].propagate(learningRate, trainingSet[d].input[i]);
+            }
+        }
+    }
+
+    for (var d = 0; d < 2; d++) {
+        var out = [];
+        var t = 0;
+        for (var i = 0; i < width * height; i++) {
+            l1[i].activate(trainingSet[d].input[i]);
+
+        }
+        for (var i = 0; i < width * height / k; i++) {
+            l2[i].activate();
+        }
+        for (var i = 0; i < width * height; i++) {
+            out[i] = l3[i].activate();
+            t += Math.pow(out[i] - trainingSet[d].input[i], 2);
+        }
+        console.log(j1 + ' Ошибка', t)
+        writeImage(out, "temp"+d+"d" + j1 + ".jpg");
+    }
+
+    //fs.writeFileSync('./N1.json', JSON.stringify(l1.toString()), 'utf-8');
+    //fs.writeFileSync('./N2.json', JSON.stringify(l2.toString()), 'utf-8');
+    //fs.writeFileSync('./N3.json', JSON.stringify(l3.toString()), 'utf-8');
+}
+
+ var out = [];
+ var t = 0;
+ for (var i = 0; i < width * height; i++) {
+     l1[i].activate(trainingSet[0].input[i]);
+
+ }
+ for (var i = 0; i < width * height/5; i++) {
+    l2[i].activate();
+     //console.log(out[i])
+ }
+ for (var i = 0; i < width * height; i++) {
+     out[i] = l3[i].activate();
+     t += Math.pow(out[i] - trainingSet[0].input[i], 2);
+     //console.log(out[i])
+ }
+ console.log('2.Обучение сети за ' + ((Date.now() - st) / 1000) + ' секунд. Ошибка', t)
+
+ //console.log(out)
+ writeImage(out, "0.jpg");
+/*
+var stte=Date.now();
+var st=Date.now();
+trainer.train(trainingSet,{
+	rate: .002,
+	iterations: 10000,
+	error: .0000000000000000000000000000000001,
+	log: 500,
+	cost: Trainer.cost.MSE,
+    schedule: {
+	every: 50, // repeat this task every 500 iterations
+	do: function(data) {
+
+	    writeImage(myNet.activate(getImage("in1.jpg")));
+	    writeImage2(myNet.activate(getImage("in2.jpg")));
+		// custom log
+		console.log("error", data.error, "iterations", data.iterations, ":",stte/1000);
+
+	}
+    }
+});
+*/
+
+
+//myNet.layers.hidden[0].length
+//var standalone = myNet.standalone();
+//fs.writeFileSync('./Standalone.JSON',JSON.stringify(standalone.toString()),'utf-8' );
+
+//fs.writeFileSync('./Net.JSON',JSON.stringify(myNet.toJSON()),'utf-8' );
+
+process.exit(0);
+
+
+
+function getImage(name) {
+    var jpegData = fs.readFileSync(name);
+    
+    var ot = jpeg.decode(jpegData, true).data;
+    
+    var o = [];
+
+    for (var i = 0; i != width * height; i++) {
+        o[i]=ot[i*4]/256;
+    }
+    //console.log(o.length, ot.length)
+    return o;
+}
+function writeImage(data, name) {
+    var d = new Uint8Array(width * height * 4);
+    for (var i = 0; i != width * height; i++) {
+        var t;
+        if (data[i] * 255 > 255)
+            t = 255;
+        else if (data[i] * 255 < 0)
+            t = 0;
+        else
+            t = data[i] * 255;
+        d[i * 4] = t;
+        d[i * 4 + 1] = t;
+        d[i * 4 + 2] = t;
+        d[i * 4+3] = 255;
+    }
+    var ot = jpeg.encode({
+        data: d,
+        width: width,
+        height: height
+    }, 100);
+    try {
+        fs.writeFileSync(name, ot.data, 'binary');
+    } catch (err) {
+        console.log("Не удалось записать в файл");
+    }
+}
+function writeImage2(data) {
+    var d = new Uint8Array(width * height * 4);
+    for (var i = 0; i != width * height; i++) {
+        var t;
+        if (data[i] * 255 > 255)
+            t = 255;
+        else if (data[i] * 255 < 0)
+            t = 0;
+        else
+            t = data[i] * 255;
+        d[i * 4] = t;
+        d[i * 4 + 1] = t;
+        d[i * 4 + 2] = t;
+        d[i * 4 + 3] = 255;
+    }
+    var ot = jpeg.encode({
+        data: d,
+        width: width,
+        height: height
+    });
+    try {
+        fs.writeFileSync('o2.jpg', ot.data, 'binary');
+    } catch (err) {
+        console.log("Не удалось записать в файл");
+    }
+}
